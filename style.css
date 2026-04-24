@@ -202,11 +202,9 @@ input[type=range] { accent-color: var(--border-color); }
 /* Bottom Navigation */
 #bottom-nav {
     height: 70px; display: flex; justify-content: flex-start; align-items: center;
-    border-top: 4px solid var(--border-color);
-    border-radius: 0;
+    border-top: 3px solid var(--border-color); border-radius: 12px 12px 0 0;
     z-index: 10; overflow-x: auto; white-space: nowrap; padding: 0 5px;
     background: #fff;
-    flex-shrink: 0;
 }
 #bottom-nav::-webkit-scrollbar { display: none; }
 
