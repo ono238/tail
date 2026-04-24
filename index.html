@@ -42,20 +42,20 @@
                 </div>
                 
                 <!-- Map Area -->
-                <div id="map-area" class="hidden" style="flex-direction: row; gap: 10px; height: 100%; padding: 5px;">
+                <div id="map-area" class="hidden">
                     <div id="map-container" style="flex: 1.4; display: flex; justify-content: center; align-items: center; border-radius: 12px; padding: 2px; height: 100%; overflow: hidden;">
                         <div id="game-map" style="width: 100%; max-height: 100%; aspect-ratio: 1/1;"></div>
                     </div>
                     
-                    <div id="controls-container" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
-                        <div id="message-log" class="glass" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; border-radius: 12px; font-size: 0.8rem;"></div>
+                    <div id="controls-container">
+                        <div id="message-log" class="glass"></div>
                         
                         <!-- D-Pad for Mobile -->
-                        <div id="dpad-container" style="height: auto; aspect-ratio: 1/1; position: relative; margin-bottom: 5px;">
-                            <button class="dpad-btn up" data-dir="up" style="width:45px; height:45px;">▲</button>
-                            <button class="dpad-btn left" data-dir="left" style="width:45px; height:45px;">◀</button>
-                            <button class="dpad-btn right" data-dir="right" style="width:45px; height:45px;">▶</button>
-                            <button class="dpad-btn down" data-dir="down" style="width:45px; height:45px;">▼</button>
+                        <div id="dpad-container">
+                            <button class="dpad-btn up" data-dir="up">▲</button>
+                            <button class="dpad-btn left" data-dir="left">◀</button>
+                            <button class="dpad-btn right" data-dir="right">▶</button>
+                            <button class="dpad-btn down" data-dir="down">▼</button>
                         </div>
                     </div>
                 </div>

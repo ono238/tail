@@ -29,10 +29,10 @@ const SKILLS = [
 ];
 
 const ENEMIES = [
-    { id: 'fish', name: '凶暴な魚', baseHp: 20, atk: 5, def: 2, img: 'enemy_fish.png', prob: 50 },
-    { id: 'crab', name: '鎧ガニ', baseHp: 30, atk: 4, def: 8, img: 'enemy_crab.png', prob: 30 },
-    { id: 'squid', name: '深淵のイカ', baseHp: 20, atk: 12, def: 1, img: 'enemy_squid.png', prob: 15 },
-    { id: 'shark', name: '暴君ザメ', baseHp: 60, atk: 15, def: 5, img: 'enemy_shark.png', prob: 5 }
+    { id: 'fish', name: '凶暴な魚', baseHp: 20, atk: 6, def: 2, img: 'enemy_fish.png', prob: 50, chargeChance: 0.1, skillName: '突進準備' },
+    { id: 'crab', name: '鎧ガニ', baseHp: 40, atk: 5, def: 10, img: 'enemy_crab.png', prob: 30, chargeChance: 0.2, skillName: 'ハサミを構える' },
+    { id: 'squid', name: '深淵のイカ', baseHp: 25, atk: 14, def: 1, img: 'enemy_squid.png', prob: 15, chargeChance: 0.3, skillName: '墨を溜める' },
+    { id: 'shark', name: '暴君ザメ', baseHp: 80, atk: 20, def: 6, img: 'enemy_shark.png', prob: 5, chargeChance: 0.4, skillName: '大きく口を開ける' }
 ];
 
 
@@ -649,7 +649,8 @@ class Game {
             data: selectedEnemy,
             hp: selectedEnemy.baseHp + Math.floor(Math.random() * 10),
             atk: selectedEnemy.atk + Math.floor(Math.random() * 3),
-            def: selectedEnemy.def
+            def: selectedEnemy.def,
+            isCharging: false
         };
         
         // Encounter effect
@@ -688,6 +689,11 @@ class Game {
         const p = document.createElement('p');
         p.textContent = msg;
         if(type === 'success') p.style.color = 'var(--start-color)';
+        if(type === 'important') {
+            p.style.color = 'var(--color-hp)';
+            p.style.fontWeight = 'bold';
+            p.style.fontSize = '1.1rem';
+        }
         this.dom.combatLog.appendChild(p);
         this.dom.combatLog.scrollTop = this.dom.combatLog.scrollHeight;
     }
@@ -766,16 +772,34 @@ class Game {
             return;
         }
 
-        let damageToPlayer = Math.max(1, enemy.atk - (action === 'defend' ? this.player.def * 2 : this.player.def));
-        this.player.hp -= damageToPlayer;
-        this.logCombat(`敵の反撃！ ${damageToPlayer} ダメージ`);
-        this.updateCombatUI();
+        // Enemy Turn
+        setTimeout(() => {
+            let dmg = 0;
+            if (enemy.isCharging) {
+                // Unleash heavy attack
+                dmg = Math.max(2, Math.floor(enemy.atk * 2.5) - (action === 'defend' ? this.player.def * 2.5 : this.player.def));
+                this.logCombat(`強攻撃！！ ${dmg} ダメージ`, 'important');
+                enemy.isCharging = false;
+            } else {
+                // Normal or Start Charge
+                if (Math.random() < (enemy.data.chargeChance || 0.1)) {
+                    enemy.isCharging = true;
+                    this.logCombat(`${enemy.data.name}は${enemy.data.skillName}！力を溜めている…！`, 'success');
+                    // No damage this turn
+                } else {
+                    dmg = Math.max(1, enemy.atk - (action === 'defend' ? this.player.def * 2 : this.player.def));
+                    this.logCombat(`敵の反撃！ ${dmg} ダメージ`);
+                }
+            }
 
-        if (this.player.hp <= 0) {
-            setTimeout(() => {
-                this.triggerGameOver('戦闘で倒れてしまった...');
-            }, 1000);
-        }
+            if (dmg > 0) {
+                this.player.hp -= dmg;
+                this.updateCombatUI();
+                if (this.player.hp <= 0) {
+                    this.triggerGameOver("力尽きてしまった…");
+                }
+            }
+        }, 600);
     }
 
     startSingleTyping(index) {
