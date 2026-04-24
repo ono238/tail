@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>カワウソの深淵探索</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Top Bar -->
+        <header id="top-bar" class="glass">
+            <div class="top-stat" style="flex: 1;">
+                <span class="icon">❤️</span>
+                <div class="bar-container"><div id="hp-bar" class="bar fill-hp"></div></div>
+                <span id="hp-value" class="stat-value">100</span>
+            </div>
+            <div class="top-stat" id="air-container" style="visibility: hidden; flex: 1;">
+                <span class="icon">🫧</span>
+                <div class="bar-container"><div id="air-bar" class="bar fill-air"></div></div>
+                <span id="air-value" class="stat-value">180</span>
+            </div>
+            <div class="top-stat" style="flex: 0.4; justify-content: flex-end;">
+                <span class="icon">🪙</span>
+                <span id="coin-value" class="stat-value" style="color: gold; text-shadow: 0 0 5px gold;">0</span>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            
+            <!-- VIEW: DIVE (Start & Map) -->
+            <section id="view-dive" class="view active">
+                <!-- Start Screen Overlay -->
+                <div id="start-overlay" class="active">
+                    <img src="otter.png" alt="カワウソ" class="hero-otter">
+                    <h1>カワウソの深淵探索</h1>
+                    <button id="btn-start-dive" class="btn primary btn-large">潜水開始</button>
+                </div>
+                
+                <!-- Map Area -->
+                <div id="map-area" class="hidden" style="flex-direction: row; gap: 10px; height: 100%; padding: 5px;">
+                    <div id="map-container" style="flex: 1.4; display: flex; justify-content: center; align-items: center; border-radius: 12px; padding: 2px; height: 100%; overflow: hidden;">
+                        <div id="game-map" style="width: 100%; max-height: 100%; aspect-ratio: 1/1;"></div>
+                    </div>
+                    
+                    <div id="controls-container" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                        <div id="message-log" class="glass" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; border-radius: 12px; font-size: 0.8rem;"></div>
+                        
+                        <!-- D-Pad for Mobile -->
+                        <div id="dpad-container" style="height: auto; aspect-ratio: 1/1; position: relative; margin-bottom: 5px;">
+                            <button class="dpad-btn up" data-dir="up" style="width:45px; height:45px;">▲</button>
+                            <button class="dpad-btn left" data-dir="left" style="width:45px; height:45px;">◀</button>
+                            <button class="dpad-btn right" data-dir="right" style="width:45px; height:45px;">▶</button>
+                            <button class="dpad-btn down" data-dir="down" style="width:45px; height:45px;">▼</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: EQUIP -->
+            <section id="view-equip" class="view" style="flex-direction: row; gap: 10px; overflow: hidden; padding: 5px;">
+                <!-- Left Column: Avatar & Stats -->
+                <div class="glass panel flex-grow scrollable" style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px;">
+                    <h2 style="font-size: 0.9rem; text-align:center; margin-bottom: 5px;">カワウソ</h2>
+                    
+                    <!-- 2D Paper Doll Avatar -->
+                    <div class="paper-doll-container">
+                        <div class="paper-doll">
+                            <div class="doll-layer base-otter" style="font-size:initial;"><img src="bipedal.png" style="width:100%; height:100%; object-fit:contain;"></div>
+                            <div class="doll-layer equip-layer body-layer" id="avatar-body"></div>
+                            <div class="doll-layer equip-layer head-layer" id="avatar-head"></div>
+                            <div class="doll-layer equip-layer arms-layer" id="avatar-arms"></div>
+                            <div class="doll-layer equip-layer weapon-layer" id="avatar-weapon"></div>
+                        </div>
+                    </div>
+
+                    <div class="stats-col" style="gap: 5px;">
+                        <div class="stat-line small-stat-line">
+                            <span class="stat-name"><span class="icon">⚔️</span></span>
+                            <span class="stat-values">
+                                <span id="stat-atk-base" class="base-val">10</span><span id="stat-atk-bonus" class="bonus-val">+0</span>
+                            </span>
+                        </div>
+                        <div class="stat-line small-stat-line">
+                            <span class="stat-name"><span class="icon">🛡️</span></span>
+                            <span class="stat-values">
+                                <span id="stat-def-base" class="base-val">5</span><span id="stat-def-bonus" class="bonus-val">+0</span>
+                            </span>
+                        </div>
+                        <div class="stat-line small-stat-line">
+                            <span class="stat-name"><span class="icon">🍀</span></span>
+                            <span class="stat-values">
+                                <span id="stat-luk-base" class="base-val">5</span><span id="stat-luk-bonus" class="bonus-val">+0</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Equip Slots & Inventory -->
+                <div class="glass panel flex-grow scrollable" style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px;">
+                    <h2 style="font-size: 0.9rem; margin-bottom: 5px;">現在の装備</h2>
+                    <div class="equip-slots" style="gap: 5px;">
+                        <div class="equip-slot small-slot" id="equip-weapon"><span class="slot-name">武器</span><span class="item-name">-</span></div>
+                        <div class="equip-slot small-slot" id="equip-head"><span class="slot-name">頭</span><span class="item-name">-</span></div>
+                        <div class="equip-slot small-slot" id="equip-body"><span class="slot-name">胴</span><span class="item-name">-</span></div>
+                        <div class="equip-slot small-slot" id="equip-arms"><span class="slot-name">腕</span><span class="item-name">-</span></div>
+                    </div>
+
+                    <h2 style="font-size: 0.9rem; margin-top: 10px;">所持装備一覧</h2>
+                    <div id="equipment-inventory" class="chest-list">
+                        <p class="empty-text">所持装備なし</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CHEST -->
+            <section id="view-chest" class="view">
+                <div class="glass panel flex-grow scrollable">
+                    <h2>所持している宝箱</h2>
+                    <div id="chest-inventory" class="chest-list">
+                        <p class="empty-text">まだ宝箱はありません</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: ITEM -->
+            <section id="view-item" class="view">
+                <div class="glass panel flex-grow scrollable">
+                    <h2>アイテム</h2>
+                    <div id="item-inventory">
+                        <p class="empty-text">所持アイテムはありません</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: VILLAGE -->
+            <section id="view-village" class="view scrollable" style="padding: 10px; gap: 10px; justify-content: flex-start;">
+                <!-- Inn -->
+                    <div class="glass panel" style="display: flex; justify-content: space-between; align-items: center; padding: 15px;">
+                        <div>
+                            <h2 style="margin:0; font-size:1.1rem; border:none; padding:0;"><span class="icon">🛏️</span> 宿屋</h2>
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">HPを全回復します (10コイン)</p>
+                        </div>
+                        <button id="btn-inn" class="btn info">泊まる</button>
+                    </div>
+
+                    <!-- Blacksmith -->
+                    <div class="glass panel" style="display: flex; flex-direction: column; gap: 10px; padding: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin:0; font-size:1.1rem; border:none; padding:0;"><span class="icon">🔨</span> 鍛冶屋</h2>
+                            <p style="font-size:0.8rem; color:var(--text-muted);">不要な装備を分解してコインに</p>
+                        </div>
+                        <div id="blacksmith-inventory" class="chest-list" style="max-height: 140px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 5px;">
+                            <p class="empty-text">分解できる装備がありません</p>
+                        </div>
+                    </div>
+
+                    <!-- Notice Board -->
+                    <div class="glass panel flex-grow" style="display: flex; flex-direction: column; gap: 10px; padding: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin:0; font-size:1.1rem; border:none; padding:0;"><span class="icon">📜</span> 掲示板</h2>
+                            <p style="font-size:0.8rem; color:var(--text-muted);">依頼をこなして報酬ゲット</p>
+                        </div>
+                        <div id="quest-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto;">
+                            <!-- Quests injected here -->
+                        </div>
+                    </div>
+                    <!-- Dojo -->
+                    <div class="glass panel" style="display: flex; flex-direction: column; gap: 10px; padding: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin:0; font-size:1.1rem; border:none; padding:0;"><span class="icon">🥋</span> 道場</h2>
+                            <p style="font-size:0.8rem; color:var(--text-muted);">コインでスキル習得</p>
+                        </div>
+                        <div id="dojo-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto;">
+                            <!-- Skills injected here -->
+                        </div>
+                    </div>
+
+            </section>
+            <!-- VIEW: SETTINGS -->
+            <section id="view-settings" class="view">
+                <div class="glass panel">
+                    <h2>設定</h2>
+                    <div class="setting-row">
+                        <label>BGM音量</label>
+                        <input type="range" id="vol-bgm" min="0" max="100" value="50">
+                    </div>
+                    <div class="setting-row">
+                        <label>SE音量</label>
+                        <input type="range" id="vol-se" min="0" max="100" value="50">
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: COMBAT -->
+            <section id="view-combat" class="view" style="flex-direction: column; align-items: stretch; justify-content: space-between; padding: 10px; gap: 10px;">
+                <div class="combat-main-area" style="flex: 1; display: flex; flex-direction: row; gap: 10px;">
+                    <!-- Left: Enemy -->
+                    <div class="combat-entity enemy-entity glass panel" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+                        <h2 id="combat-enemy-name" style="margin-bottom: 5px; font-size: 1.2rem; color: var(--text-main);">Enemy</h2>
+                        <div class="entity-icon" id="enemy-icon-container" style="display: none; font-size: 4rem; animation: hoverEntity 3s infinite ease-in-out;">🐟</div>
+                        <img src="" id="combat-enemy-img" style="width: 100%; max-width: 120px; aspect-ratio: 1/1; object-fit: contain; margin-bottom: 10px; animation: hoverEntity 3s infinite ease-in-out;">
+                        <div class="entity-stats" style="font-size: 1rem; font-weight: bold; background: var(--bg-color); padding: 5px 15px; border-radius: 8px; border: 2px solid var(--text-main);">HP: <span id="combat-enemy-hp" style="color: var(--color-hp);">50</span></div>
+                    </div>
+                    
+                    <!-- Right: Log -->
+                    <div id="combat-log" class="combat-log-box glass panel" style="flex: 1.2; font-size: 0.95rem; display: flex; flex-direction: column; justify-content: flex-start; padding: 10px;"></div>
+                </div>
+                
+                <!-- Bottom: Actions -->
+                <div class="combat-actions-area glass panel" style="display: flex; flex-direction: column; gap: 10px; padding: 10px;">
+                    <div class="combat-actions" style="display: flex; justify-content: space-between; gap: 10px;">
+                        <button id="btn-attack" class="btn danger" style="flex: 1; font-size: 1rem; padding: 10px;">攻撃</button>
+                        <button id="btn-defend" class="btn info" style="flex: 1; font-size: 1rem; padding: 10px;">防御</button>
+                        <button id="btn-flee" class="btn" style="flex: 1; background: var(--text-muted); font-size: 1rem; padding: 10px;">逃げる</button>
+                    </div>
+                    <div id="combat-skills-area" style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                        <!-- Skills will be injected here -->
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav id="bottom-nav" class="glass">
+            <button class="nav-btn active" data-target="view-dive">
+                <span class="nav-icon">🌊</span><span class="nav-text">潜水</span>
+            </button>
+            <button class="nav-btn" data-target="view-equip">
+                <span class="nav-icon">🛡️</span><span class="nav-text">装備</span>
+            </button>
+            <button class="nav-btn" data-target="view-chest">
+                <span class="nav-icon">📦</span><span class="nav-text">宝箱</span>
+            </button>
+            <button class="nav-btn" data-target="view-item">
+                <span class="nav-icon">🎒</span><span class="nav-text">ｱｲﾃﾑ</span>
+            </button>
+            <button class="nav-btn" data-target="view-village">
+                <span class="nav-icon">🏘️</span><span class="nav-text">村</span>
+            </button>
+            <button class="nav-btn" data-target="view-settings">
+                <span class="nav-icon">⚙️</span><span class="nav-text">設定</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Encounter Overlay -->
+    <div id="encounter-overlay"></div>
+
+    <!-- Modals -->
+
+    <!-- Typing Modal -->
+    <div id="typing-modal" class="modal hidden">
+        <div class="modal-content glass-strong typing-container">
+            <h2>宝箱の解錠</h2>
+            <div id="typing-chest-info"></div>
+            <div class="typing-area">
+                <div id="typing-target" class="typing-target"></div>
+                <input type="text" id="typing-input" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="typing-progress"><div id="typing-bar" class="bar fill-typing"></div></div>
+        </div>
+    </div>
+    
+    <!-- Game Over Modal -->
+    <div id="gameover-modal" class="modal hidden">
+        <div class="modal-content glass-strong center-content">
+            <h2 id="gameover-msg"></h2>
+            <button id="btn-retry" class="btn primary btn-large" style="margin-top: 20px;">戻る</button>
+        </div>
+    </div>
+
+    <!-- CUSTOM NOTIFICATION MODAL -->
+    <div id="notification-modal" class="modal hidden" style="z-index: 10000;">
+        <div class="modal-content glass-strong center-content" style="gap: 20px;">
+            <div id="notification-icon" style="font-size: 3rem;">🎉</div>
+            <h2 id="notification-title" style="margin: 0; font-size: 1.5rem; border:none;">通知</h2>
+            <p id="notification-msg" style="font-size: 1rem; line-height: 1.5; white-space: pre-wrap; font-weight: bold;"></p>
+            <button id="notification-ok-btn" class="btn primary" style="width: 100%; font-size: 1.2rem; padding: 15px;">OK</button>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div id="confirm-modal" class="modal hidden" style="z-index: 10000;">
+        <div class="modal-content glass-strong center-content" style="gap: 20px;">
+            <div id="confirm-icon" style="font-size: 3rem;">❓</div>
+            <h2 id="confirm-title" style="margin: 0; font-size: 1.5rem; border:none;">確認</h2>
+            <p id="confirm-msg" style="font-size: 1rem; line-height: 1.5; white-space: pre-wrap; font-weight: bold;"></p>
+            <div style="display: flex; gap: 10px; width: 100%;">
+                <button id="confirm-cancel-btn" class="btn" style="flex: 1; font-size: 1.1rem; padding: 15px; background: var(--text-muted);">キャンセル</button>
+                <button id="confirm-ok-btn" class="btn danger" style="flex: 1; font-size: 1.1rem; padding: 15px;">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
