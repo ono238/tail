@@ -38,6 +38,12 @@
                 <div id="start-overlay" class="active">
                     <img src="otter.png" alt="カワウソ" class="hero-otter">
                     <h1>カワウソの深淵探索</h1>
+                    <div id="warp-selection" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                        <label for="select-warp-depth" style="font-weight: bold; font-size: 1.1rem; text-shadow: 1px 1px 0px var(--start-color);">開始深度:</label>
+                        <select id="select-warp-depth" style="padding: 8px; font-size: 1.1rem; border-radius: 8px; border: 3px solid var(--border-color); font-family: 'DotGothic16', monospace; font-weight: bold;">
+                            <option value="0">0m (水面)</option>
+                        </select>
+                    </div>
                     <button id="btn-start-dive" class="btn primary btn-large">潜水開始</button>
                 </div>
                 
@@ -127,7 +133,10 @@
             <!-- VIEW: CHEST -->
             <section id="view-chest" class="view">
                 <div class="glass panel flex-grow scrollable">
-                    <h2>所持している宝箱</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2 style="margin: 0; border: none; padding: 0;">所持している宝箱</h2>
+                        <button id="btn-open-all-chests" class="btn primary" style="padding: 5px 15px; font-size: 0.9rem; display: none;">全て開ける</button>
+                    </div>
                     <div id="chest-inventory" class="chest-list">
                         <p class="empty-text">まだ宝箱はありません</p>
                     </div>

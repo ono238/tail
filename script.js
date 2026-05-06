@@ -68,6 +68,7 @@ class Game {
         this.initDOM();
         this.bindEvents();
         this.generateQuests();
+        this.updateWarpSelection();
         this.updateUI();
     }
 
@@ -175,6 +176,9 @@ class Game {
         
         const btnSynthesize = document.getElementById('btn-synthesize');
         if (btnSynthesize) btnSynthesize.addEventListener('click', () => this.synthesizeAll());
+        
+        const btnOpenAll = document.getElementById('btn-open-all-chests');
+        if (btnOpenAll) btnOpenAll.addEventListener('click', () => this.openAllChests());
 
         // Typing
         this.dom.typingInput.addEventListener('input', (e) => this.handleTyping(e));
@@ -238,15 +242,23 @@ class Game {
 
         // Inventory
         this.dom.chestList.innerHTML = '';
+        const btnOpenAll = document.getElementById('btn-open-all-chests');
+        
         if (this.player.inventory.length === 0) {
             this.dom.chestList.innerHTML = '<p class="empty-text">まだ宝箱はありません</p>';
+            if (btnOpenAll) btnOpenAll.style.display = 'none';
         } else {
+            if (btnOpenAll) btnOpenAll.style.display = 'block';
             this.player.inventory.forEach((chest, index) => {
                 const div = document.createElement('div');
                 div.className = `chest-item ${chest.rarity.color}`;
                 div.innerHTML = `
                     <div style="flex-grow:1; display:flex; align-items:center; gap:10px;">
-                        <span><img src="chest.png" style="width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 0 5px rgba(0,0,0,0.5));"></span><span>${chest.rarity.name}の宝箱</span>
+                        <span><img src="chest.png" style="width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 0 5px rgba(0,0,0,0.5));"></span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span>${chest.rarity.name}の宝箱</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">(水深${chest.depth || 0}m)</span>
+                        </div>
                     </div>
                     <button class="btn info open-btn" data-index="${index}" style="padding: 6px 12px; font-size: 0.9rem;">開ける</button>
                 `;
@@ -501,6 +513,21 @@ class Game {
         this.dom.logList.scrollTop = this.dom.logList.scrollHeight;
     }
 
+    updateWarpSelection() {
+        const select = document.getElementById('select-warp-depth');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="0">0m (水面)</option>';
+        const maxWarp = Math.floor(this.maxDepthReached / 100) * 100;
+        
+        for (let d = 100; d <= maxWarp; d += 100) {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = `${d}m から開始`;
+            select.appendChild(opt);
+        }
+    }
+
     startDive() {
         this.isDiving = true;
         this.state = 'EXPLORE';
@@ -508,9 +535,17 @@ class Game {
         this.dom.mapArea.classList.remove('hidden');
         
         this.player.air = this.player.maxAir;
-        this.player.depth = 0;
-        this.dom.logList.innerHTML = '';
-        this.log('潜水を開始した！', 'important');
+        
+        const warpSelect = document.getElementById('select-warp-depth');
+        if (warpSelect && warpSelect.value !== "0") {
+            this.player.depth = parseInt(warpSelect.value, 10);
+            this.dom.logList.innerHTML = '';
+            this.log(`深度 ${this.player.depth}m にワープした！`, 'important');
+        } else {
+            this.player.depth = 0;
+            this.dom.logList.innerHTML = '';
+            this.log('潜水を開始した！', 'important');
+        }
         
         this.updateUI();
     }
@@ -519,6 +554,7 @@ class Game {
         this.isDiving = false;
         this.dom.startOverlay.classList.add('active');
         this.dom.mapArea.classList.add('hidden');
+        this.updateWarpSelection();
         this.updateUI();
     }
 
@@ -854,7 +890,7 @@ class Game {
         }, 600);
     }
 
-    openChest(index) {
+    openChest(index, skipNotify = false) {
         const chest = this.player.inventory[index];
         this.player.inventory.splice(index, 1);
         
@@ -885,8 +921,29 @@ class Game {
         
         this.updateUI();
         
-        const encText = enchant ? `\n[${enchant.name}] 効果付き！` : '';
-        this.showNotification("解錠成功！", `${item.name} を入手しました！${encText}\n（装備タブから身につけてください）`, "✨");
+        if (!skipNotify) {
+            const encText = enchant ? `\n[${enchant.name}] 効果付き！` : '';
+            this.showNotification("解錠成功！", `${item.name} を入手しました！${encText}\n（装備タブから身につけてください）`, "✨");
+        }
+    }
+
+    openAllChests() {
+        if (this.player.inventory.length === 0) return;
+        
+        let openedCount = this.player.inventory.length;
+        let gold = 0, silver = 0, bronze = 0;
+        
+        while(this.player.inventory.length > 0) {
+            const chest = this.player.inventory[0];
+            if (chest.rarity.name === '金') gold++;
+            else if (chest.rarity.name === '銀') silver++;
+            else bronze++;
+            
+            this.openChest(0, true);
+        }
+        
+        this.updateUI();
+        this.showNotification("一括解錠完了！", `宝箱を ${openedCount} 個開けました！\n（金:${gold} 銀:${silver} 銅:${bronze}）\n装備タブをご確認ください。`, "📦");
     }
 
     equipManualItem(inventoryIndex) {
