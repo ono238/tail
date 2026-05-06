@@ -62,8 +62,8 @@
                         </div>
                     </div>
                     
-                    <div id="dive-side-right" class="glass panel">
-                        <div id="message-log"></div>
+                    <div id="dive-side-right" class="glass panel" style="display: flex; flex-direction: column; overflow: hidden;">
+                        <div id="message-log" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;"></div>
                     </div>
                 </div>
             </section>
@@ -216,7 +216,7 @@
                     </div>
                     
                     <!-- Right: Log -->
-                    <div id="combat-log" class="combat-log-box glass panel" style="flex: 1.2; font-size: 0.95rem; display: flex; flex-direction: column; justify-content: flex-start; padding: 10px;"></div>
+                    <div id="combat-log" class="combat-log-box glass panel" style="flex: 1.2; font-size: 0.95rem; display: flex; flex-direction: column; justify-content: flex-start; padding: 10px; overflow-y: auto; height: 100%;"></div>
                 </div>
                 
                 <!-- Bottom: Actions -->
