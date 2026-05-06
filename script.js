@@ -5,10 +5,12 @@ const CONFIG = {
 };
 
 const DIVE_EVENTS = [
-    { type: 'nothing', name: '静かな海', prob: 45, messages: ['静かな海が広がっている...', '特に何も見当たらない。', '泡が立ち上っている。', '深い青が続いている。'] },
+    { type: 'nothing', name: '静かな海', prob: 35, messages: ['静かな海が広がっている...', '特に何も見当たらない。', '泡が立ち上っている。', '深い青が続いている。'] },
     { type: 'enemy', name: '敵に遭遇', prob: 25 },
-    { type: 'chest', name: '宝箱発見', prob: 20 },
-    { type: 'hazard', name: '強い水流', prob: 10, airLoss: 15, message: '強い水流に巻き込まれた！酸素を余分に消費した。' }
+    { type: 'chest', name: '宝箱発見', prob: 15 },
+    { type: 'hazard', name: '強い水流', prob: 5, airLoss: 15, message: '強い水流に巻き込まれた！酸素を余分に消費した。' },
+    { type: 'recover_air', name: 'エアポケット', prob: 10, airGain: 20, message: 'エアポケットを発見した！酸素が20回復した。' },
+    { type: 'recover_hp', name: '癒やしの海草', prob: 10, hpGain: 20, message: '癒やしの海草を見つけた。HPが20回復した！' }
 ];
 
 const RARITY = {
@@ -26,11 +28,11 @@ const SKILLS = [
 ];
 
 const ENEMIES = [
-    { id: 'fish', name: '凶暴な魚', baseHp: 20, atk: 6, def: 2, img: 'enemy_fish.png', prob: 50, chargeChance: 0.1, skillName: '突進準備' },
-    { id: 'crab', name: '鎧ガニ', baseHp: 40, atk: 5, def: 10, img: 'enemy_crab.png', prob: 30, chargeChance: 0.2, skillName: 'ハサミを構える' },
-    { id: 'squid', name: '深淵のイカ', baseHp: 25, atk: 14, def: 1, img: 'enemy_squid.png', prob: 15, chargeChance: 0.3, skillName: '墨を溜める' },
-    { id: 'shark', name: '暴君ザメ', baseHp: 80, atk: 20, def: 6, img: 'enemy_shark.png', prob: 5, chargeChance: 0.4, skillName: '大きく口を開ける' },
-    { id: 'boss', name: '海神リヴァイアサン', baseHp: 120, atk: 35, def: 15, img: 'enemy_shark.png', prob: 0, chargeChance: 0.3, skillName: '大渦潮' }
+    { id: 'fish', name: '凶暴な魚', baseHp: 15, atk: 4, def: 1, img: 'enemy_fish.png', prob: 50, chargeChance: 0.1, skillName: '突進準備' },
+    { id: 'crab', name: '鎧ガニ', baseHp: 30, atk: 4, def: 8, img: 'enemy_crab.png', prob: 30, chargeChance: 0.2, skillName: 'ハサミを構える' },
+    { id: 'squid', name: '深淵のイカ', baseHp: 20, atk: 10, def: 1, img: 'enemy_squid.png', prob: 15, chargeChance: 0.3, skillName: '墨を溜める' },
+    { id: 'shark', name: '暴君ザメ', baseHp: 60, atk: 15, def: 4, img: 'enemy_shark.png', prob: 5, chargeChance: 0.4, skillName: '大きく口を開ける' },
+    { id: 'boss', name: '海神リヴァイアサン', baseHp: 100, atk: 25, def: 10, img: 'enemy_shark.png', prob: 0, chargeChance: 0.3, skillName: '大渦潮' }
 ];
 
 
@@ -239,7 +241,7 @@ class Game {
             this.dom.chestList.querySelectorAll('.open-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = parseInt(e.currentTarget.dataset.index, 10);
-                    this.startSingleTyping(idx);
+                    this.openChest(idx);
                 });
             });
         }
@@ -519,7 +521,8 @@ class Game {
         if (!this.isDiving || this.state !== 'EXPLORE') return;
         
         this.log('生還を試みている...', 'important');
-        this.showNotification("生還した！", `深度 ${this.player.depth}m から無事に生還した！\n宝箱を持ち帰りました。`, "🦦", () => {
+        const msg = this.player.inventory.length > 0 ? `深度 ${this.player.depth}m から無事に生還した！\n宝箱を持ち帰りました。` : `深度 ${this.player.depth}m から無事に生還した！`;
+        this.showNotification("生還した！", msg, "🦦", () => {
             this.endDive();
         });
     }
@@ -546,6 +549,14 @@ class Game {
         } else if (event.type === 'hazard') {
             this.log(event.message, 'important');
             this.player.air -= event.airLoss;
+            this.updateUI();
+        } else if (event.type === 'recover_air') {
+            this.log(event.message, 'success');
+            this.player.air = Math.min(this.player.maxAir, this.player.air + event.airGain);
+            this.updateUI();
+        } else if (event.type === 'recover_hp') {
+            this.log(event.message, 'success');
+            this.player.hp = Math.min(this.player.maxHp, this.player.hp + event.hpGain);
             this.updateUI();
         }
         
@@ -698,9 +709,13 @@ class Game {
         if (enemy.hp <= 0) {
             this.logCombat('敵を倒した！', 'success');
             
-            if (enemy.data.id === 'shark') {
-                this.logCombat('サメを討伐し、宝箱を発見した！', 'success');
+            this.logCombat('宝箱をドロップした！', 'success');
+            if (enemy.data.id === 'shark' || enemy.data.id === 'boss') {
                 this.player.inventory.push({ rarity: RARITY.GOLD });
+            } else if (enemy.data.id === 'crab' || enemy.data.id === 'squid') {
+                this.player.inventory.push({ rarity: RARITY.SILVER });
+            } else {
+                this.player.inventory.push({ rarity: RARITY.BRONZE });
             }
 
             this.updateStats('kills');
@@ -745,65 +760,9 @@ class Game {
         }, 600);
     }
 
-    startSingleTyping(index) {
-        if (this.state === 'TYPING') return;
-        this.state = 'TYPING';
-        this.openingChestIndex = index;
-        this.typingQueue = [this.player.inventory[index]];
-        this.dom.typingModal.classList.remove('hidden');
-        this.nextTypingChest();
-    }
-
-    nextTypingChest() {
-        if (this.typingQueue.length === 0) {
-            this.dom.typingModal.classList.add('hidden');
-            this.state = 'EXPLORE';
-            this.updateUI();
-            return;
-        }
-
-        const chest = this.typingQueue[0];
-        const words = chest.rarity.words;
-        this.currentTypingWord = words[Math.floor(Math.random() * words.length)];
-        this.typingIndex = 0;
-        
-        this.dom.typingInfo.innerHTML = `<span style="display:inline-block; margin-bottom: 10px;"><img src="chest.png" style="width:60px; height:60px; object-fit:contain; filter:drop-shadow(0 0 10px rgba(0,0,0,0.8));"></span> <br> ${chest.rarity.name}箱解錠...`;
-        this.updateTypingUI();
-        this.dom.typingInput.value = '';
-        setTimeout(() => this.dom.typingInput.focus(), 100); // Focus for mobile keyboard
-    }
-
-    updateTypingUI() {
-        const typed = this.currentTypingWord.substring(0, this.typingIndex);
-        const untyped = this.currentTypingWord.substring(this.typingIndex);
-        this.dom.typingTarget.innerHTML = `<span class="typed">${typed}</span><span class="untyped">${untyped}</span>`;
-        this.dom.typingBar.style.width = `${(this.typingIndex / this.currentTypingWord.length) * 100}%`;
-    }
-
-    handleTyping(e) {
-        if (this.state !== 'TYPING') return;
-        
-        const inputChar = e.target.value.toLowerCase().slice(-1);
-        e.target.value = '';
-
-        if (inputChar === this.currentTypingWord[this.typingIndex].toLowerCase()) {
-            this.typingIndex++;
-            this.updateTypingUI();
-            
-            if (this.typingIndex === this.currentTypingWord.length) {
-                this.openChest();
-            }
-        } else {
-            this.dom.typingTarget.classList.add('error');
-            setTimeout(() => this.dom.typingTarget.classList.remove('error'), 200);
-        }
-    }
-
-    openChest() {
-        const chest = this.typingQueue.shift();
-        
-        // Remove from inventory
-        this.player.inventory.splice(this.openingChestIndex, 1);
+    openChest(index) {
+        const chest = this.player.inventory[index];
+        this.player.inventory.splice(index, 1);
         
         const type = EQUIP_TYPES[Math.floor(Math.random() * EQUIP_TYPES.length)];
         const mult = chest.rarity.name === '金' ? 3 : (chest.rarity.name === '銀' ? 2 : 1);
@@ -813,8 +772,8 @@ class Game {
             name: `${chest.rarity.name}の${type === 'weapon' ? '武器' : type === 'head' ? '頭' : type === 'body' ? '胴' : '腕'}`,
             type: type,
             rarity: chest.rarity.color,
-            atk: Math.floor(Math.random() * 5 * mult),
-            def: Math.floor(Math.random() * 5 * mult),
+            atk: Math.floor(Math.random() * 5 * mult) + 1,
+            def: Math.floor(Math.random() * 5 * mult) + 1,
             luk: Math.floor(Math.random() * 3 * mult)
         };
 
@@ -823,9 +782,7 @@ class Game {
         
         this.updateUI();
         
-        this.showNotification("解錠成功！", `${item.name} を入手しました！\n（装備タブから身につけてください）`, "✨", () => {
-            this.nextTypingChest();
-        });
+        this.showNotification("解錠成功！", `${item.name} を入手しました！\n（装備タブから身につけてください）`, "✨");
     }
 
     equipManualItem(inventoryIndex) {
