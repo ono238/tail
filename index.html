@@ -43,20 +43,27 @@
                 
                 <!-- Map Area -->
                 <div id="map-area" class="hidden">
-                    <div id="map-container" style="flex: 1.4; display: flex; justify-content: center; align-items: center; border-radius: 12px; padding: 2px; height: 100%; overflow: hidden;">
-                        <div id="game-map" style="width: 100%; max-height: 100%; aspect-ratio: 1/1;"></div>
+                    <div id="dive-main-left">
+                        <div id="dive-visual-container" class="glass" style="background-image: url('underwater_bg.png'); background-size: cover; background-position: center;">
+                            <div id="dive-scene">
+                                <div id="dive-depth-overlay">深度: <span id="current-depth">0</span>m</div>
+                                <!-- First Person View Elements -->
+                                <div id="fpv-view">
+                                    <div class="bubble-layer"></div>
+                                    <div class="vignette"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Choice Buttons -->
+                        <div id="dive-commands" class="horizontal-btns">
+                            <button id="btn-dive-deeper" class="btn primary btn-large">さらに潜る (🫧5)</button>
+                            <button id="btn-surface" class="btn danger btn-large">生還する</button>
+                        </div>
                     </div>
                     
-                    <div id="controls-container">
-                        <div id="message-log" class="glass"></div>
-                        
-                        <!-- D-Pad for Mobile -->
-                        <div id="dpad-container">
-                            <button class="dpad-btn up" data-dir="up">▲</button>
-                            <button class="dpad-btn left" data-dir="left">◀</button>
-                            <button class="dpad-btn right" data-dir="right">▶</button>
-                            <button class="dpad-btn down" data-dir="down">▼</button>
-                        </div>
+                    <div id="dive-side-right" class="glass panel">
+                        <div id="message-log"></div>
                     </div>
                 </div>
             </section>
@@ -271,7 +278,7 @@
     <div id="gameover-modal" class="modal hidden">
         <div class="modal-content glass-strong center-content">
             <h2 id="gameover-msg"></h2>
-            <button id="btn-retry" class="btn primary btn-large" style="margin-top: 20px;">戻る</button>
+            <button id="btn-retry" class="btn primary btn-large" style="margin-top: 20px;">リスタート</button>
         </div>
     </div>
 

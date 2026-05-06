@@ -109,95 +109,100 @@ h2 { font-size: 1.1rem; margin-bottom: 10px; color: var(--text-main); font-weigh
 }
 @keyframes float { 0% { transform: translateY(0); } 100% { transform: translateY(-10px); } }
 
-/* Map Area */
+/* Dive Area Layout */
 #map-area { 
-    display: flex; 
-    flex-direction: row; /* Default for wide screens */
-    height: 100%; 
-    gap: 10px; 
-    padding: 5px;
+    display: flex; flex-direction: row; height: 100%; gap: 10px; padding: 5px;
 }
 #map-area.hidden { display: none; }
 
-#map-container {
-    flex-grow: 1; display: flex; justify-content: center; align-items: center; overflow: hidden;
-    background: #fff; border-radius: 8px; border: 3px solid var(--border-color); box-shadow: 4px 4px 0px var(--border-color);
+#dive-main-left {
+    flex: 1.8; display: flex; flex-direction: column; gap: 10px;
 }
 
-#game-map {
-    display: grid; gap: 2px; background-color: var(--border-color); border: 4px solid var(--border-color); border-radius: 4px; overflow: hidden;
+#dive-side-right {
+    flex: 1.2; display: flex; flex-direction: column; overflow: hidden;
+    background: rgba(255,255,255,0.05); border-radius: 12px;
 }
 
-.cell { width: 100%; aspect-ratio: 1/1; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; border-radius: 0; transition: background 0.2s; overflow: hidden; line-height: 1; min-width: 0; min-height: 0; }
-
-.cell.wall { background-color: var(--wall-color); }
-.cell.floor { background-color: var(--floor-color); }
-.cell.start { background-color: #fff; border: 2px solid var(--start-color); }
-.cell.explored { opacity: 1; }
-.cell.unexplored { opacity: 0; }
-
-.player { z-index: 10; animation: breathe 0.5s infinite alternate steps(2); }
-@keyframes breathe { from { transform: scale(1); } to { transform: scale(1.1); } }
-
-/* Controls Container */
-#controls-container {
-    flex: 1; display: flex; flex-direction: column; gap: 10px;
-}
-
-/* Message Log */
-#message-log, .combat-log-box {
-    overflow-y: auto; padding: 10px; font-size: 1rem; border-radius: 8px; display: flex; flex-direction: column; flex-grow: 1; justify-content: flex-end;
-}
-#message-log p, .combat-log-box p { margin: 2px 0; color: var(--text-main); line-height: 1.4; animation: slideIn 0.1s steps(3); border-bottom: 1px dotted #ccc; padding-bottom: 2px; }
-@keyframes slideIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
-#message-log p.important, .combat-log-box p.important { color: var(--color-hp); font-weight: bold; }
-#message-log p.success, .combat-log-box p.success { color: #008800; font-weight: bold; }
-
-/* D-Pad - Ergonomic Compact Design */
-#dpad-container { 
-    height: 160px; 
-    width: 160px;
-    position: relative; 
-    display: grid;
-    grid-template-areas: 
-        ". up ."
-        "left . right"
-        ". down .";
-    grid-template-columns: 1fr 1.2fr 1fr;
-    grid-template-rows: 1fr 1.2fr 1fr;
-    gap: 5px;
-    margin: 0 auto;
-}
-
-.dpad-btn {
-    width: 100%; height: 100%;
-    background: #fff;
-    border: 3px solid var(--border-color); 
-    border-radius: 12px;
-    color: var(--text-main); 
-    font-size: 1.5rem;
+/* Dive Visual */
+#dive-visual-container {
+    flex: 1.4; position: relative; overflow: hidden;
     display: flex; justify-content: center; align-items: center;
-    box-shadow: 0 4px 0px var(--border-color);
-    transition: all 0.1s;
-    cursor: pointer;
+    border-radius: 12px; border: 4px solid var(--border-color); box-shadow: 6px 6px 0px var(--border-color);
+    background-color: #001a33;
 }
 
-.dpad-btn:active { 
-    background: #f0f0f0; 
-    transform: translateY(2px); 
-    box-shadow: 0 2px 0px var(--border-color); 
+#dive-scene {
+    width: 100%; height: 100%; position: relative;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
 }
 
-.dpad-btn.up { grid-area: up; }
-.dpad-btn.down { grid-area: down; }
-.dpad-btn.left { grid-area: left; }
-.dpad-btn.right { grid-area: right; }
+#dive-depth-overlay {
+    position: absolute; top: 15px; left: 15px;
+    background: rgba(255,255,255,0.95); padding: 5px 15px;
+    border: 3px solid var(--border-color); border-radius: 8px;
+    font-weight: bold; font-size: 1.2rem;
+    box-shadow: 3px 3px 0px var(--border-color);
+    z-index: 10;
+}
 
-/* Visual integration: Cross shape logic */
-.dpad-btn.up { border-bottom-width: 1px; border-radius: 12px 12px 4px 4px; }
-.dpad-btn.down { border-top-width: 1px; border-radius: 4px 4px 12px 12px; }
-.dpad-btn.left { border-right-width: 1px; border-radius: 12px 4px 4px 12px; }
-.dpad-btn.right { border-left-width: 1px; border-radius: 4px 12px 12px 4px; }
+/* First Person View */
+#fpv-view {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    overflow: hidden; pointer-events: none;
+}
+
+.vignette {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle, transparent 40%, rgba(0, 10, 20, 0.6) 100%);
+    box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+    z-index: 4;
+}
+
+.bubble-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: radial-gradient(circle at center, rgba(255,255,255,0.4) 1px, transparent 1px);
+    background-size: 100px 100px;
+    animation: warpSpeed 3s infinite linear;
+    z-index: 2;
+}
+
+/* 擬似3D: 中央から手前に流れる泡のエフェクト */
+#fpv-view::before, #fpv-view::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    width: 10px; height: 10px; background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%; opacity: 0;
+    box-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+#fpv-view::before { animation: diveBubble 2s infinite linear; }
+#fpv-view::after { animation: diveBubble 2s infinite linear 1s; }
+
+@keyframes diveBubble {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    10% { opacity: 0.8; }
+    100% { transform: translate(-50%, -50%) scale(20) translate(20px, 20px); opacity: 0; }
+}
+
+@keyframes warpSpeed {
+    from { transform: scale(1); opacity: 0.5; }
+    to { transform: scale(3); opacity: 0; }
+}
+
+/* 潜水時の加速エフェクト */
+.diving-fast .bubble-layer {
+    animation-duration: 0.5s !important;
+}
+.diving-fast #fpv-view::before, .diving-fast #fpv-view::after {
+    animation-duration: 0.4s !important;
+}
+
+/* Choice Buttons */
+#dive-commands {
+    display: flex; gap: 12px; padding: 5px;
+}
+.horizontal-btns { flex-direction: row; }
+.horizontal-btns .btn { flex: 1; padding: 12px 5px; font-size: 1rem; }
 
 /* Stats Column */
 .stats-col { display: flex; flex-direction: column; gap: 8px; }
@@ -362,29 +367,34 @@ input[type=range] { accent-color: var(--border-color); }
         flex-direction: column !important;
     }
     
-    #map-container {
+    #dive-main-left {
         flex: 0 0 auto !important;
-        height: 40vh !important;
+        display: flex;
+        flex-direction: column !important;
+    }
+
+    #dive-visual-container {
+        height: 35vh !important;
         width: 100% !important;
     }
     
-    #controls-container {
+    #dive-side-right {
         flex: 1 !important;
-        display: flex;
-        flex-direction: row !important;
-        gap: 10px;
+        height: auto !important;
+        margin-top: 5px;
     }
     
     #message-log {
-        flex: 1.5 !important;
         font-size: 0.75rem !important;
     }
     
-    #dpad-container {
-        flex: 1 !important;
-        height: 120px !important;
-        width: 120px !important;
-        min-width: 120px;
+    .horizontal-btns {
+        margin-top: 5px;
+    }
+
+    .horizontal-btns .btn {
+        padding: 18px 5px !important;
+        font-size: 1rem !important;
     }
 
     #bottom-nav {

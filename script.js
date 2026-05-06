@@ -1,17 +1,14 @@
 const CONFIG = {
-    MAP_WIDTH: 15, // Smaller for mobile screen
-    MAP_HEIGHT: 15,
     MAX_AIR: 180,
     BASE_HP: 100,
-    ENEMY_COUNT: 4,
-    CHEST_COUNT: 4
+    DIVE_AIR_COST: 5
 };
 
-const DIRS = [
-    { x: 0, y: -1, name: 'up' },
-    { x: 1, y: 0, name: 'right' },
-    { x: 0, y: 1, name: 'down' },
-    { x: -1, y: 0, name: 'left' }
+const DIVE_EVENTS = [
+    { type: 'nothing', name: '静かな海', prob: 45, messages: ['静かな海が広がっている...', '特に何も見当たらない。', '泡が立ち上っている。', '深い青が続いている。'] },
+    { type: 'enemy', name: '敵に遭遇', prob: 25 },
+    { type: 'chest', name: '宝箱発見', prob: 20 },
+    { type: 'hazard', name: '強い水流', prob: 10, airLoss: 15, message: '強い水流に巻き込まれた！酸素を余分に消費した。' }
 ];
 
 const RARITY = {
@@ -32,14 +29,15 @@ const ENEMIES = [
     { id: 'fish', name: '凶暴な魚', baseHp: 20, atk: 6, def: 2, img: 'enemy_fish.png', prob: 50, chargeChance: 0.1, skillName: '突進準備' },
     { id: 'crab', name: '鎧ガニ', baseHp: 40, atk: 5, def: 10, img: 'enemy_crab.png', prob: 30, chargeChance: 0.2, skillName: 'ハサミを構える' },
     { id: 'squid', name: '深淵のイカ', baseHp: 25, atk: 14, def: 1, img: 'enemy_squid.png', prob: 15, chargeChance: 0.3, skillName: '墨を溜める' },
-    { id: 'shark', name: '暴君ザメ', baseHp: 80, atk: 20, def: 6, img: 'enemy_shark.png', prob: 5, chargeChance: 0.4, skillName: '大きく口を開ける' }
+    { id: 'shark', name: '暴君ザメ', baseHp: 80, atk: 20, def: 6, img: 'enemy_shark.png', prob: 5, chargeChance: 0.4, skillName: '大きく口を開ける' },
+    { id: 'boss', name: '海神リヴァイアサン', baseHp: 120, atk: 35, def: 15, img: 'enemy_shark.png', prob: 0, chargeChance: 0.3, skillName: '大渦潮' }
 ];
 
 
 class Game {
     constructor() {
         this.player = {
-            x: 1, y: 1,
+            depth: 0,
             hp: CONFIG.BASE_HP, maxHp: CONFIG.BASE_HP,
             air: CONFIG.MAX_AIR, maxAir: CONFIG.MAX_AIR,
             atk: 10, def: 5, luk: 5,
@@ -94,13 +92,13 @@ class Game {
             
             startOverlay: document.getElementById('start-overlay'),
             mapArea: document.getElementById('map-area'),
-            mapGrid: document.getElementById('game-map'),
+            diveVisualContainer: document.getElementById('dive-visual-container'),
             logList: document.getElementById('message-log'),
+            currentDepth: document.getElementById('current-depth'),
             
             btnStartDive: document.getElementById('btn-start-dive'),
-            btnRest: document.getElementById('btn-rest'),
-            
-            dpadBtns: document.querySelectorAll('.dpad-btn'),
+            btnDiveDeeper: document.getElementById('btn-dive-deeper'),
+            btnSurface: document.getElementById('btn-surface'),
             
             combatEnemyHp: document.getElementById('combat-enemy-hp'),
             combatEnemyName: document.getElementById('combat-enemy-name'),
@@ -124,8 +122,7 @@ class Game {
             btnRetry: document.getElementById('btn-retry')
         };
         
-        this.dom.mapGrid.style.gridTemplateColumns = `repeat(${CONFIG.MAP_WIDTH}, 1fr)`;
-        this.dom.mapGrid.style.gridTemplateRows = `repeat(${CONFIG.MAP_HEIGHT}, 1fr)`;
+        // Grid related code removed
     }
 
     bindEvents() {
@@ -146,21 +143,15 @@ class Game {
         this.dom.btnInn.addEventListener('click', () => this.innRest());
         document.getElementById('btn-retry').addEventListener('click', () => this.resetGame());
         
-        // D-pad Input
-        this.dom.dpadBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const dirName = e.currentTarget.dataset.dir;
-                this.move(dirName);
-            });
-        });
+        // Dive Commands
+        this.dom.btnDiveDeeper.addEventListener('click', () => this.diveAction());
+        this.dom.btnSurface.addEventListener('click', () => this.surfaceAction());
 
-        // Keyboard support (for testing)
+        // Keyboard support (Space for dive, R for return)
         document.addEventListener('keydown', (e) => {
             if (!this.isDiving || this.state === 'COMBAT' || this.state === 'TYPING') return;
-            if (e.key === 'ArrowUp' || e.key === 'w') this.move('up');
-            if (e.key === 'ArrowDown' || e.key === 's') this.move('down');
-            if (e.key === 'ArrowLeft' || e.key === 'a') this.move('left');
-            if (e.key === 'ArrowRight' || e.key === 'd') this.move('right');
+            if (e.code === 'Space') this.diveAction();
+            if (e.key === 'r') this.surfaceAction();
         });
 
         // Combat
@@ -196,6 +187,13 @@ class Game {
             this.dom.airContainer.style.visibility = 'visible';
             this.dom.airValue.textContent = this.player.air;
             this.dom.airBar.style.width = `${(this.player.air / this.player.maxAir) * 100}%`;
+            this.dom.currentDepth.textContent = this.player.depth;
+            
+            // Depth visual effect
+            const depthFactor = Math.min(this.player.depth / 1000, 1);
+            const colorStart = `hsl(${210}, ${70}%, ${45 - (depthFactor * 30)}%)`;
+            const colorEnd = `hsl(${210}, ${100}%, ${10 - (depthFactor * 10)}%)`;
+            this.dom.diveVisualContainer.style.background = `linear-gradient(to bottom, ${colorStart}, ${colorEnd})`;
         } else {
             this.dom.airContainer.style.visibility = 'hidden';
         }
@@ -262,7 +260,7 @@ class Game {
             const av = avatarMap[type];
             if (item) {
                 av.el.className = `doll-layer equip-layer ${type}-layer equipped item-${item.rarity}`;
-                av.el.textContent = av.icon;
+                av.el.textContent = '';
             } else {
                 av.el.className = `doll-layer equip-layer ${type}-layer`;
                 av.el.textContent = '';
@@ -484,14 +482,10 @@ class Game {
         this.dom.mapArea.classList.remove('hidden');
         
         this.player.air = this.player.maxAir;
-        this.entities = [];
+        this.player.depth = 0;
         this.dom.logList.innerHTML = '';
         this.log('潜水を開始した！', 'important');
         
-        this.generateMap();
-        this.player.x = 1;
-        this.player.y = 1;
-        this.renderMap();
         this.updateUI();
     }
 
@@ -502,114 +496,64 @@ class Game {
         this.updateUI();
     }
 
-    generateMap() {
-        this.map = Array(CONFIG.MAP_HEIGHT).fill(0).map(() => Array(CONFIG.MAP_WIDTH).fill(1));
-        const carve = (x, y) => {
-            this.map[y][x] = 0;
-            const dirs = [...DIRS].sort(() => Math.random() - 0.5);
-            for (let d of dirs) {
-                const nx = x + d.x * 2;
-                const ny = y + d.y * 2;
-                if (nx > 0 && nx < CONFIG.MAP_WIDTH - 1 && ny > 0 && ny < CONFIG.MAP_HEIGHT - 1 && this.map[ny][nx] === 1) {
-                    this.map[y + d.y][x + d.x] = 0;
-                    carve(nx, ny);
-                }
-            }
-        };
-        carve(1, 1);
-        
-        this.placeEntities('chest', CONFIG.CHEST_COUNT);
-        this.placeEntities('enemy', CONFIG.ENEMY_COUNT);
-    }
-
-    placeEntities(type, count) {
-        let placed = 0;
-        while (placed < count) {
-            const x = Math.floor(Math.random() * (CONFIG.MAP_WIDTH - 2)) + 1;
-            const y = Math.floor(Math.random() * (CONFIG.MAP_HEIGHT - 2)) + 1;
-            if (this.map[y][x] === 0 && !(x === 1 && y === 1) && !this.getEntityAt(x, y)) {
-                this.entities.push({ type, x, y });
-                placed++;
-            }
-        }
-    }
-
-    getEntityAt(x, y) { return this.entities.find(e => e.x === x && e.y === y); }
-    removeEntity(entity) { this.entities = this.entities.filter(e => e !== entity); }
-
-    renderMap() {
-        this.dom.mapGrid.innerHTML = '';
-        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
-            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
-                const cell = document.createElement('div');
-                cell.className = `cell ${this.map[y][x] === 1 ? 'wall' : 'floor'}`;
-                
-                const dist = Math.abs(this.player.x - x) + Math.abs(this.player.y - y);
-                if (dist <= 3) cell.classList.add('explored');
-                else cell.classList.add('unexplored');
-
-                if (x === 1 && y === 1) {
-                    cell.classList.add('start');
-                    if (dist <= 3) cell.innerHTML = '⬆️';
-                }
-
-                if (x === this.player.x && y === this.player.y) {
-                    cell.innerHTML = '<div class="player">🦦</div>';
-                } else if (dist <= 3) {
-                    const entity = this.getEntityAt(x, y);
-                    if (entity) cell.innerHTML = entity.type === 'chest' ? '📦' : '🐟';
-                }
-                
-                this.dom.mapGrid.appendChild(cell);
-            }
-        }
-    }
-
-    move(dirName) {
+    diveAction() {
         if (!this.isDiving || this.state !== 'EXPLORE') return;
-        
-        const d = DIRS.find(dir => dir.name === dirName);
-        if (!d) return;
-
-        const nx = this.player.x + d.x;
-        const ny = this.player.y + d.y;
-
-        if (this.map[ny] && this.map[ny][nx] === 0) {
-            this.player.x = nx;
-            this.player.y = ny;
-            this.player.air -= 1;
-            
-            this.checkTile();
-            this.renderMap();
-            this.updateUI();
-            this.checkAir();
-        }
-    }
-
-    checkTile() {
-        if (this.player.x === 1 && this.player.y === 1 && this.player.inventory.length > 0) {
-            this.log('無事に生還した！宝箱画面から解錠しよう！', 'success');
-            setTimeout(() => {
-                this.showNotification("生還した！", "「宝箱」タブから持ち帰った宝箱を開けよう！", "🦦", () => {
-                    this.endDive();
-                });
-            }, 100);
+        if (this.player.air < CONFIG.DIVE_AIR_COST) {
+            this.log('酸素が足りなくて潜れない！', 'important');
             return;
         }
 
-        const entity = this.getEntityAt(this.player.x, this.player.y);
-        if (entity) {
-            if (entity.type === 'chest') {
-                this.getChest();
-                this.removeEntity(entity);
-            } else if (entity.type === 'enemy') {
-                this.startCombat(entity);
+        // Visual feedback
+        this.dom.diveVisualContainer.classList.add('diving-fast');
+        setTimeout(() => this.dom.diveVisualContainer.classList.remove('diving-fast'), 600);
+
+        this.player.air -= CONFIG.DIVE_AIR_COST;
+        this.player.depth += Math.floor(Math.random() * 10) + 5;
+        this.log(`${this.player.depth}m 地点へ潜った... (🫧-${CONFIG.DIVE_AIR_COST})`);
+
+        this.updateUI();
+        this.triggerRandomEvent();
+    }
+
+    surfaceAction() {
+        if (!this.isDiving || this.state !== 'EXPLORE') return;
+        
+        this.log('生還を試みている...', 'important');
+        this.showNotification("生還した！", `深度 ${this.player.depth}m から無事に生還した！\n宝箱を持ち帰りました。`, "🦦", () => {
+            this.endDive();
+        });
+    }
+
+    triggerRandomEvent() {
+        const roll = Math.random() * 100;
+        let cumulative = 0;
+        let event = DIVE_EVENTS[0];
+        for (let e of DIVE_EVENTS) {
+            cumulative += e.prob;
+            if (roll < cumulative) {
+                event = e;
+                break;
             }
         }
+
+        if (event.type === 'nothing') {
+            const msg = event.messages[Math.floor(Math.random() * event.messages.length)];
+            this.log(msg);
+        } else if (event.type === 'chest') {
+            this.getChest();
+        } else if (event.type === 'enemy') {
+            this.startCombat();
+        } else if (event.type === 'hazard') {
+            this.log(event.message, 'important');
+            this.player.air -= event.airLoss;
+            this.updateUI();
+        }
+        
+        this.checkAir();
     }
 
     checkAir() {
-        if (this.player.air <= 0 && (this.player.x !== 1 || this.player.y !== 1)) {
+        if (this.player.air <= 0) {
             this.triggerGameOver('酸素が尽きた... 獲得した宝箱を失った');
         }
     }
@@ -626,26 +570,31 @@ class Game {
 
         this.player.inventory.push({ rarity });
         this.log(`${rarity.name}箱を入手！`, 'success');
+        this.showNotification("宝箱発見！", `${rarity.name}の宝箱を見つけました！`, "📦");
     }
 
-    startCombat(enemyEntity) {
+    startCombat() {
         this.state = 'TRANSITION';
-        this.isDiving = false; // Prevent movement
+        this.isDiving = false; 
         
-        // Select enemy based on prob
-        const roll = Math.random() * 100;
-        let cumulative = 0;
         let selectedEnemy = ENEMIES[0];
-        for (let e of ENEMIES) {
-            cumulative += e.prob;
-            if (roll < cumulative) {
-                selectedEnemy = e;
-                break;
+        
+        if (this.player.depth >= 100 && Math.random() < 0.3) {
+            selectedEnemy = ENEMIES.find(e => e.id === 'boss');
+        } else {
+            const roll = Math.random() * 100;
+            let cumulative = 0;
+            for (let e of ENEMIES) {
+                if (e.id === 'boss') continue;
+                cumulative += e.prob;
+                if (roll < cumulative) {
+                    selectedEnemy = e;
+                    break;
+                }
             }
         }
 
         this.currentEnemy = {
-            entity: enemyEntity,
             data: selectedEnemy,
             hp: selectedEnemy.baseHp + Math.floor(Math.random() * 10),
             atk: selectedEnemy.atk + Math.floor(Math.random() * 3),
@@ -653,13 +602,11 @@ class Game {
             isCharging: false
         };
         
-        // Encounter effect
         if(this.dom.encounterOverlay) {
             this.dom.encounterOverlay.classList.remove('hidden');
             this.dom.encounterOverlay.classList.add('flash');
         }
         
-        // Vibrate if mobile
         if (navigator.vibrate) navigator.vibrate(200);
 
         setTimeout(() => {
@@ -712,15 +659,13 @@ class Game {
                 setTimeout(() => {
                     this.state = 'EXPLORE';
                     this.isDiving = true;
-                    this.removeEntity(enemy.entity); // Entity disappears
                     this.switchTab('view-dive');
-                    this.renderMap();
                     this.updateUI();
                 }, 800);
                 return;
             } else {
                 this.logCombat('逃げるための酸素が足りない！');
-                return; // Flee failed, enemy doesn't attack
+                return; 
             }
         }
 
@@ -762,11 +707,9 @@ class Game {
             this.updateCombatUI();
             
             setTimeout(() => {
-                this.removeEntity(enemy.entity);
                 this.state = 'EXPLORE';
-                this.isDiving = true; // Resume movement
+                this.isDiving = true; 
                 this.switchTab('view-dive');
-                this.renderMap();
                 this.updateUI();
             }, 1200);
             return;
@@ -912,6 +855,10 @@ class Game {
         
         this.dom.gameoverMsg.innerHTML = `<span style="color: #ff4d4d; font-size: 1.2rem;">${reason}</span><br>GAME OVER`;
         this.dom.gameoverModal.classList.remove('hidden');
+    }
+
+    resetGame() {
+        location.reload();
     }
     showNotification(title, msg, icon = '💬', callback = null) {
         document.getElementById('notification-title').textContent = title;
