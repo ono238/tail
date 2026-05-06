@@ -159,8 +159,9 @@
                     <div class="glass panel" style="display: flex; flex-direction: column; gap: 10px; padding: 15px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <h2 style="margin:0; font-size:1.1rem; border:none; padding:0;"><span class="icon">🔨</span> 鍛冶屋</h2>
-                            <p style="font-size:0.8rem; color:var(--text-muted);">不要な装備を分解してコインに</p>
+                            <button id="btn-synthesize" class="btn primary" style="padding: 4px 10px; font-size: 0.8rem;">一括合成(同レア3つ)</button>
                         </div>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin: 0;">不要な装備を分解したり、合成・再抽選します</p>
                         <div id="blacksmith-inventory" class="chest-list" style="max-height: 140px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 5px;">
                             <p class="empty-text">分解できる装備がありません</p>
                         </div>
@@ -225,6 +226,7 @@
                         <button id="btn-defend" class="btn info" style="flex: 1; font-size: 1rem; padding: 10px;">防御</button>
                         <button id="btn-flee" class="btn" style="flex: 1; background: var(--text-muted); font-size: 1rem; padding: 10px;">逃げる</button>
                     </div>
+                    <button id="btn-auto-combat" class="btn" style="width: 100%; margin-top: 5px; font-size: 1rem; padding: 8px; border: 1px solid var(--text-muted);">オート：OFF</button>
                     <div id="combat-skills-area" style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
                         <!-- Skills will be injected here -->
                     </div>

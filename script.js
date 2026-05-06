@@ -27,6 +27,13 @@ const SKILLS = [
     { id: 'pierce', name: '甲羅割り', cost: 8, type: 'attack_pierce', mult: 1.2, price: 100, desc: '酸素を8消費し、敵の防御力を無視' }
 ];
 
+const ENCHANTS = [
+    { id: 'lifesteal', name: '吸血', desc: '攻撃時、ダメージの20%HP回復', color: '#ff4d4d' },
+    { id: 'crit', name: '会心', desc: '20%の確率でダメージ2倍', color: '#ffd700' },
+    { id: 'airsaver', name: '節約', desc: '潜水時の酸素消費を無効化(確率)', color: '#87cefa' },
+    { id: 'evasion', name: '見切り', desc: '回避率上昇', color: '#98fb98' }
+];
+
 const ENEMIES = [
     { id: 'fish', name: '凶暴な魚', baseHp: 15, atk: 4, def: 1, img: 'enemy_fish.png', prob: 50, chargeChance: 0.1, skillName: '突進準備' },
     { id: 'crab', name: '鎧ガニ', baseHp: 30, atk: 4, def: 8, img: 'enemy_crab.png', prob: 30, chargeChance: 0.2, skillName: 'ハサミを構える' },
@@ -54,6 +61,9 @@ class Game {
         this.map = [];
         this.entities = [];
         this.isDiving = false;
+        this.isAutoCombat = false;
+        this.isEnemyTurn = false;
+        this.maxDepthReached = 0;
         
         this.initDOM();
         this.bindEvents();
@@ -110,6 +120,7 @@ class Game {
             btnAttack: document.getElementById('btn-attack'),
             btnDefend: document.getElementById('btn-defend'),
             btnFlee: document.getElementById('btn-flee'),
+            btnAutoCombat: document.getElementById('btn-auto-combat'),
             
             encounterOverlay: document.getElementById('encounter-overlay'),
             
@@ -160,6 +171,10 @@ class Game {
         this.dom.btnAttack.addEventListener('click', () => this.combatAction('attack'));
         this.dom.btnDefend.addEventListener('click', () => this.combatAction('defend'));
         if(this.dom.btnFlee) this.dom.btnFlee.addEventListener('click', () => this.combatAction('flee'));
+        if(this.dom.btnAutoCombat) this.dom.btnAutoCombat.addEventListener('click', () => this.toggleAutoCombat());
+        
+        const btnSynthesize = document.getElementById('btn-synthesize');
+        if (btnSynthesize) btnSynthesize.addEventListener('click', () => this.synthesizeAll());
 
         // Typing
         this.dom.typingInput.addEventListener('input', (e) => this.handleTyping(e));
@@ -250,7 +265,7 @@ class Game {
         EQUIP_TYPES.forEach(type => {
             const el = document.getElementById(`equip-${type}`).querySelector('.item-name');
             const item = this.player.equipment[type];
-            el.textContent = item ? item.name : '-';
+            el.innerHTML = item ? `${item.name}${item.enchant ? ` <span style="color:${item.enchant.color}; font-size:0.8rem;">[${item.enchant.name}]</span>` : ''}` : '-';
             
             // Update Avatar
             const avatarMap = {
@@ -281,10 +296,12 @@ class Game {
                 // Equip Tab
                 const btn = document.createElement('div');
                 btn.className = `equip-item-btn ${item.rarity}`;
+                const encHtml = item.enchant ? `<div style="color:${item.enchant.color}; font-size: 0.8rem; margin-top:3px;">[${item.enchant.name}] ${item.enchant.desc}</div>` : '';
                 btn.innerHTML = `
                     <div class="item-type">${item.type === 'weapon' ? '武器' : item.type === 'head' ? '頭' : item.type === 'body' ? '胴' : '腕'}</div>
                     <div style="font-weight: bold; font-size: 0.9rem;">${item.name}</div>
                     <div class="item-stats">ATK+${item.atk} DEF+${item.def} LUK+${item.luk}</div>
+                    ${encHtml}
                 `;
                 btn.addEventListener('click', () => this.equipManualItem(index));
                 this.dom.equipmentList.appendChild(btn);
@@ -295,12 +312,19 @@ class Game {
                 bBtn.innerHTML = `
                     <div style="flex-grow:1;">
                         <span style="font-weight:bold;">${item.name}</span>
-                        <span style="font-size:0.8rem; color:gray; margin-left:10px;">分解で ${item.rarity === 'gold' ? 30 : (item.rarity === 'silver' ? 15 : 5)}🪙</span>
+                        <span style="font-size:0.8rem; color:gray; margin-left:10px;">分解: ${item.rarity === 'gold' ? 30 : (item.rarity === 'silver' ? 15 : 5)}🪙</span>
+                        ${encHtml}
                     </div>
-                    <button class="btn danger" style="padding: 4px 10px; font-size: 0.8rem;" data-index="${index}">分解</button>
+                    <div style="display:flex; gap: 5px; align-items:center;">
+                        <button class="btn info reroll-btn" style="padding: 4px 10px; font-size: 0.8rem;" data-index="${index}">🎲ﾘﾛｰﾙ(10🪙)</button>
+                        <button class="btn danger dismantle-btn" style="padding: 4px 10px; font-size: 0.8rem;" data-index="${index}">分解</button>
+                    </div>
                 `;
-                bBtn.querySelector('button').addEventListener('click', (e) => {
+                bBtn.querySelector('.dismantle-btn').addEventListener('click', (e) => {
                     this.dismantleEquipment(parseInt(e.currentTarget.dataset.index, 10));
+                });
+                bBtn.querySelector('.reroll-btn').addEventListener('click', (e) => {
+                    this.rerollEquipment(parseInt(e.currentTarget.dataset.index, 10));
                 });
                 this.dom.blacksmithList.appendChild(bBtn);
             });
@@ -500,7 +524,15 @@ class Game {
 
     diveAction() {
         if (!this.isDiving || this.state !== 'EXPLORE') return;
-        if (this.player.air < CONFIG.DIVE_AIR_COST) {
+        let cost = CONFIG.DIVE_AIR_COST;
+        if (Object.values(this.player.equipment).some(eq => eq && eq.enchant && eq.enchant.id === 'airsaver')) {
+            if (Math.random() < 0.2) {
+                cost = 0;
+                this.log('【節約】酸素の消費を無効化した！', 'success');
+            }
+        }
+
+        if (this.player.air < cost) {
             this.log('酸素が足りなくて潜れない！', 'important');
             return;
         }
@@ -509,9 +541,15 @@ class Game {
         this.dom.diveVisualContainer.classList.add('diving-fast');
         setTimeout(() => this.dom.diveVisualContainer.classList.remove('diving-fast'), 600);
 
-        this.player.air -= CONFIG.DIVE_AIR_COST;
+        this.player.air -= cost;
         this.player.depth += Math.floor(Math.random() * 10) + 5;
-        this.log(`${this.player.depth}m 地点へ潜った... (🫧-${CONFIG.DIVE_AIR_COST})`);
+        if (this.player.depth > this.maxDepthReached) this.maxDepthReached = this.player.depth;
+        
+        if (cost > 0) {
+            this.log(`${this.player.depth}m 地点へ潜った... (🫧-${cost})`);
+        } else {
+            this.log(`${this.player.depth}m 地点へ潜った...`);
+        }
 
         this.updateUI();
         this.triggerRandomEvent();
@@ -579,7 +617,7 @@ class Game {
         else if (roll < silverThreshold) rarity = RARITY.SILVER;
         else rarity = RARITY.BRONZE;
 
-        this.player.inventory.push({ rarity });
+        this.player.inventory.push({ rarity, depth: this.player.depth });
         this.log(`${rarity.name}箱を入手！`, 'success');
         this.showNotification("宝箱発見！", `${rarity.name}の宝箱を見つけました！`, "📦");
     }
@@ -605,11 +643,13 @@ class Game {
             }
         }
 
+        const scale = 1 + (this.player.depth / 100);
         this.currentEnemy = {
             data: selectedEnemy,
-            hp: selectedEnemy.baseHp + Math.floor(Math.random() * 10),
-            atk: selectedEnemy.atk + Math.floor(Math.random() * 3),
-            def: selectedEnemy.def,
+            hp: Math.floor((selectedEnemy.baseHp + Math.floor(Math.random() * 10)) * scale),
+            maxHp: Math.floor((selectedEnemy.baseHp + Math.floor(Math.random() * 10)) * scale),
+            atk: Math.floor((selectedEnemy.atk + Math.floor(Math.random() * 3)) * scale),
+            def: Math.floor(selectedEnemy.def * scale),
             isCharging: false
         };
         
@@ -658,6 +698,8 @@ class Game {
 
     combatAction(action, skillData = null) {
         if (this.state !== 'COMBAT') return;
+        if (this.isEnemyTurn) return;
+        this.isEnemyTurn = true;
 
         let enemy = this.currentEnemy;
         let damageToEnemy = 0;
@@ -667,28 +709,32 @@ class Game {
                 this.player.air -= 10;
                 this.logCombat('酸素を10消費して逃げ出した！');
                 this.updateUI();
+                this.isAutoCombat = false;
                 setTimeout(() => {
                     this.state = 'EXPLORE';
                     this.isDiving = true;
                     this.switchTab('view-dive');
                     this.updateUI();
+                    this.isEnemyTurn = false;
                 }, 800);
                 return;
             } else {
                 this.logCombat('逃げるための酸素が足りない！');
+                this.isEnemyTurn = false;
+                this.isAutoCombat = false;
                 return; 
             }
         }
 
         if (action === 'attack') {
             damageToEnemy = Math.max(1, this.player.atk - enemy.def + Math.floor(Math.random() * 5));
-            enemy.hp -= damageToEnemy;
-            this.logCombat(`攻撃！ ${damageToEnemy} ダメージ`);
         } else if (action === 'defend') {
             this.logCombat(`防御姿勢をとった！`);
         } else if (action === 'skill') {
             if (this.player.air < skillData.cost) {
                 this.logCombat('酸素が足りない！');
+                this.isEnemyTurn = false;
+                this.isAutoCombat = false;
                 return;
             }
             this.player.air -= skillData.cost;
@@ -697,8 +743,6 @@ class Game {
                 let baseDmg = this.player.atk;
                 let targetDef = skillData.type === 'attack_pierce' ? 0 : enemy.def;
                 damageToEnemy = Math.max(1, Math.floor(baseDmg * skillData.mult) - targetDef + Math.floor(Math.random() * 5));
-                enemy.hp -= damageToEnemy;
-                this.logCombat(`${skillData.name}！ ${damageToEnemy} ダメージ`);
             } else if (skillData.type === 'heal') {
                 this.player.hp = Math.min(this.player.maxHp, this.player.hp + skillData.power);
                 this.logCombat(`${skillData.name}！ HPが ${skillData.power} 回復`);
@@ -706,16 +750,39 @@ class Game {
             this.updateUI();
         }
 
+        // Apply Player Attack Enchants
+        if (damageToEnemy > 0) {
+            let isCrit = false;
+            if (Object.values(this.player.equipment).some(eq => eq && eq.enchant && eq.enchant.id === 'crit')) {
+                if (Math.random() < 0.2) isCrit = true;
+            }
+            if (isCrit) {
+                damageToEnemy *= 2;
+                this.logCombat(`【会心】痛恨の一撃！ ${damageToEnemy} ダメージ`);
+            } else {
+                this.logCombat(`攻撃！ ${damageToEnemy} ダメージ`);
+            }
+            enemy.hp -= damageToEnemy;
+
+            if (Object.values(this.player.equipment).some(eq => eq && eq.enchant && eq.enchant.id === 'lifesteal')) {
+                let lifesteal = Math.floor(damageToEnemy * 0.2);
+                if (lifesteal > 0) {
+                    this.player.hp = Math.min(this.player.maxHp, this.player.hp + lifesteal);
+                    this.logCombat(`【吸血】HPを ${lifesteal} 回復！`, 'success');
+                }
+            }
+        }
+
         if (enemy.hp <= 0) {
             this.logCombat('敵を倒した！', 'success');
             
             this.logCombat('宝箱をドロップした！', 'success');
             if (enemy.data.id === 'shark' || enemy.data.id === 'boss') {
-                this.player.inventory.push({ rarity: RARITY.GOLD });
+                this.player.inventory.push({ rarity: RARITY.GOLD, depth: this.player.depth });
             } else if (enemy.data.id === 'crab' || enemy.data.id === 'squid') {
-                this.player.inventory.push({ rarity: RARITY.SILVER });
+                this.player.inventory.push({ rarity: RARITY.SILVER, depth: this.player.depth });
             } else {
-                this.player.inventory.push({ rarity: RARITY.BRONZE });
+                this.player.inventory.push({ rarity: RARITY.BRONZE, depth: this.player.depth });
             }
 
             this.updateStats('kills');
@@ -726,6 +793,12 @@ class Game {
                 this.isDiving = true; 
                 this.switchTab('view-dive');
                 this.updateUI();
+                this.isEnemyTurn = false;
+                if (this.isAutoCombat) this.runAutoCombat(); // Continue auto dive maybe? Actually we should stop auto on explore, or let it auto dive? Let's just stop auto combat at end.
+                this.isAutoCombat = false;
+                if(document.getElementById('btn-auto-combat')) {
+                    document.getElementById('btn-auto-combat').classList.remove('active');
+                }
             }, 1200);
             return;
         }
@@ -733,20 +806,35 @@ class Game {
         // Enemy Turn
         setTimeout(() => {
             let dmg = 0;
+            let evadeChance = Math.min(0.5, this.player.luk * 0.02);
+            if (Object.values(this.player.equipment).some(eq => eq && eq.enchant && eq.enchant.id === 'evasion')) {
+                evadeChance += 0.1;
+            }
+
             if (enemy.isCharging) {
                 // Unleash heavy attack
                 dmg = Math.max(2, Math.floor(enemy.atk * 2.5) - (action === 'defend' ? this.player.def * 2.5 : this.player.def));
-                this.logCombat(`強攻撃！！ ${dmg} ダメージ`, 'important');
+                
+                if (Math.random() < evadeChance && action !== 'defend') {
+                    this.logCombat(`【見切り】強攻撃を紙一重で回避した！`, 'success');
+                    dmg = 0;
+                } else {
+                    this.logCombat(`強攻撃！！ ${dmg} ダメージ`, 'important');
+                }
                 enemy.isCharging = false;
             } else {
                 // Normal or Start Charge
                 if (Math.random() < (enemy.data.chargeChance || 0.1)) {
                     enemy.isCharging = true;
                     this.logCombat(`${enemy.data.name}は${enemy.data.skillName}！力を溜めている…！`, 'success');
-                    // No damage this turn
                 } else {
                     dmg = Math.max(1, enemy.atk - (action === 'defend' ? this.player.def * 2 : this.player.def));
-                    this.logCombat(`敵の反撃！ ${dmg} ダメージ`);
+                    if (Math.random() < evadeChance && action !== 'defend') {
+                        this.logCombat(`【見切り】敵の攻撃を回避した！`, 'success');
+                        dmg = 0;
+                    } else {
+                        this.logCombat(`敵の反撃！ ${dmg} ダメージ`);
+                    }
                 }
             }
 
@@ -756,6 +844,12 @@ class Game {
                 if (this.player.hp <= 0) {
                     this.triggerGameOver("力尽きてしまった…");
                 }
+            }
+
+            this.isEnemyTurn = false;
+            
+            if (this.isAutoCombat && this.state === 'COMBAT' && this.player.hp > 0) {
+                setTimeout(() => this.runAutoCombat(), 500);
             }
         }, 600);
     }
@@ -767,14 +861,23 @@ class Game {
         const type = EQUIP_TYPES[Math.floor(Math.random() * EQUIP_TYPES.length)];
         const mult = chest.rarity.name === '金' ? 3 : (chest.rarity.name === '銀' ? 2 : 1);
         
+        const scale = 1 + ((chest.depth || 0) / 100);
+        
+        const hasEnchant = Math.random() < (chest.rarity.name === '金' ? 0.8 : (chest.rarity.name === '銀' ? 0.4 : 0.1));
+        let enchant = null;
+        if (hasEnchant) {
+            enchant = ENCHANTS[Math.floor(Math.random() * ENCHANTS.length)];
+        }
+        
         const item = {
             id: Date.now() + Math.random(),
             name: `${chest.rarity.name}の${type === 'weapon' ? '武器' : type === 'head' ? '頭' : type === 'body' ? '胴' : '腕'}`,
             type: type,
             rarity: chest.rarity.color,
-            atk: Math.floor(Math.random() * 5 * mult) + 1,
-            def: Math.floor(Math.random() * 5 * mult) + 1,
-            luk: Math.floor(Math.random() * 3 * mult)
+            atk: Math.floor((Math.random() * 5 * mult + 1) * scale),
+            def: Math.floor((Math.random() * 5 * mult + 1) * scale),
+            luk: Math.floor((Math.random() * 3 * mult) * scale),
+            enchant: enchant
         };
 
         this.player.equipmentInventory.push(item);
@@ -782,7 +885,8 @@ class Game {
         
         this.updateUI();
         
-        this.showNotification("解錠成功！", `${item.name} を入手しました！\n（装備タブから身につけてください）`, "✨");
+        const encText = enchant ? `\n[${enchant.name}] 効果付き！` : '';
+        this.showNotification("解錠成功！", `${item.name} を入手しました！${encText}\n（装備タブから身につけてください）`, "✨");
     }
 
     equipManualItem(inventoryIndex) {
@@ -812,6 +916,107 @@ class Game {
         
         this.dom.gameoverMsg.innerHTML = `<span style="color: #ff4d4d; font-size: 1.2rem;">${reason}</span><br>GAME OVER`;
         this.dom.gameoverModal.classList.remove('hidden');
+    }
+
+    toggleAutoCombat() {
+        this.isAutoCombat = !this.isAutoCombat;
+        if (this.dom.btnAutoCombat) {
+            if (this.isAutoCombat) {
+                this.dom.btnAutoCombat.classList.add('active');
+                this.dom.btnAutoCombat.style.background = 'var(--start-color)';
+                this.dom.btnAutoCombat.textContent = 'オート：ON';
+                this.runAutoCombat();
+            } else {
+                this.dom.btnAutoCombat.classList.remove('active');
+                this.dom.btnAutoCombat.style.background = 'var(--text-muted)';
+                this.dom.btnAutoCombat.textContent = 'オート：OFF';
+            }
+        }
+    }
+
+    runAutoCombat() {
+        if (!this.isAutoCombat || this.state !== 'COMBAT' || this.isEnemyTurn || this.player.hp <= 0) return;
+        this.combatAction('attack');
+    }
+
+    giveRandomEquipment(rarity, depth) {
+        const type = EQUIP_TYPES[Math.floor(Math.random() * EQUIP_TYPES.length)];
+        const mult = rarity.name === '金' ? 3 : (rarity.name === '銀' ? 2 : 1);
+        const scale = 1 + (depth / 100);
+        
+        const hasEnchant = Math.random() < (rarity.name === '金' ? 0.8 : (rarity.name === '銀' ? 0.4 : 0.1));
+        let enchant = null;
+        if (hasEnchant) enchant = ENCHANTS[Math.floor(Math.random() * ENCHANTS.length)];
+        
+        const item = {
+            id: Date.now() + Math.random(),
+            name: `${rarity.name}の${type === 'weapon' ? '武器' : type === 'head' ? '頭' : type === 'body' ? '胴' : '腕'}`,
+            type: type,
+            rarity: rarity.color,
+            atk: Math.floor((Math.random() * 5 * mult + 1) * scale),
+            def: Math.floor((Math.random() * 5 * mult + 1) * scale),
+            luk: Math.floor((Math.random() * 3 * mult) * scale),
+            enchant: enchant
+        };
+        this.player.equipmentInventory.push(item);
+    }
+
+    synthesizeAll() {
+        let bronze = [], silver = [];
+        this.player.equipmentInventory.forEach(item => {
+             if (item.rarity === 'bronze') bronze.push(item);
+             if (item.rarity === 'silver') silver.push(item);
+        });
+        
+        let newItemsCount = 0;
+        let consumed = new Set();
+        
+        while(bronze.length >= 3) {
+             bronze.splice(0, 3).forEach(i => consumed.add(i));
+             this.giveRandomEquipment(RARITY.SILVER, this.maxDepthReached);
+             newItemsCount++;
+        }
+        while(silver.length >= 3) {
+             silver.splice(0, 3).forEach(i => consumed.add(i));
+             this.giveRandomEquipment(RARITY.GOLD, this.maxDepthReached);
+             newItemsCount++;
+        }
+        
+        if (newItemsCount > 0) {
+             this.player.equipmentInventory = this.player.equipmentInventory.filter(item => !consumed.has(item));
+             this.updateUI();
+             this.showNotification("合成成功！", `装備を合成し、上位レアリティの装備を ${newItemsCount} 個獲得しました！`, "⚒️");
+        } else {
+             this.showNotification("エラー", "合成可能な装備が足りません。\n（同レアリティのハズレ装備が3つ必要です）", "❌");
+        }
+    }
+
+    rerollEquipment(index) {
+        if (this.player.coins < 10) {
+            this.showNotification("エラー", "コインが足りません！(10🪙必要)", "🪙");
+            return;
+        }
+        
+        this.showConfirm("リロール確認", "10🪙消費してステータスと特殊効果を再抽選しますか？", "🎲", () => {
+            this.player.coins -= 10;
+            const item = this.player.equipmentInventory[index];
+            const mult = item.rarity === 'gold' ? 3 : (item.rarity === 'silver' ? 2 : 1);
+            const scale = 1 + (this.maxDepthReached / 100);
+            
+            const hasEnchant = Math.random() < (item.rarity === 'gold' ? 0.8 : (item.rarity === 'silver' ? 0.4 : 0.1));
+            let enchant = null;
+            if (hasEnchant) {
+                enchant = ENCHANTS[Math.floor(Math.random() * ENCHANTS.length)];
+            }
+            
+            item.atk = Math.floor((Math.random() * 5 * mult + 1) * scale);
+            item.def = Math.floor((Math.random() * 5 * mult + 1) * scale);
+            item.luk = Math.floor((Math.random() * 3 * mult) * scale);
+            item.enchant = enchant;
+            
+            this.updateUI();
+            this.showNotification("リロール完了", `${item.name} の性能が新しくなりました！`, "✨");
+        });
     }
 
     resetGame() {
